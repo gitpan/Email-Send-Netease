@@ -7,7 +7,7 @@ use MIME::Lite;
 use MIME::Words qw(encode_mimewords);
 use Carp qw/croak/;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 
 sub new {
@@ -28,7 +28,7 @@ sub new {
     eval {
         require MIME::Base64;
         require Authen::SASL;
-    } or die "Need MIME::Base64 and Authen::SASL for sendmail";
+    } or croak "Need MIME::Base64 and Authen::SASL for sendmail";
 
     bless {email=>$email,passwd=>$passwd,debug=>$debug}, $class;
 }
@@ -37,7 +37,7 @@ sub sendmail {
 
     my $self = shift;
     my $title = shift;
-    my $content = shift;
+    my $html_body = shift;
     my @recepients = @_;
 
     my $to_address = join ',',@recepients;
@@ -46,20 +46,15 @@ sub sendmail {
     my $smtpsvr = 'smtp.'.$domain;
 
     my $subject = encode_mimewords($title,'Charset','UTF-8');
-    my $data =<<EOF;
-<body>
-$content
-</body>
-EOF
 
     my $msg = MIME::Lite->new (
         From => $from_address,
         To => $to_address,
         Subject => $subject,
         Type     => 'text/html',
-        Data     => $data,
+        Data     => $html_body,
         Encoding => 'base64',
-    ) or die "create container failed: $!";
+    ) or croak "create container failed: $!";
 
     $msg->attr('content-type.charset' => 'UTF-8');
     $msg->send(  'smtp',
@@ -79,14 +74,14 @@ Email::Send::Netease - Send email with Netease's SMTP servers
 
 =head1 VERSION
 
-Version 0.01
+Version 0.02
 
 
 =head1 SYNOPSIS
 
     use Email::Send::Netease;
     my $smtp = Email::Send::Netease->new('john@126.com','mypasswd');
-    $smtp->sendmail($subject,$content,'foo@163.com','bar@sina.com');
+    $smtp->sendmail($subject,$html_body,'foo@163.com','bar@sina.com');
 
 
 =head1 METHODS
@@ -98,27 +93,31 @@ Create the object.
 The email and password are what you registered on Netease, whose domains include 126.com, 163.com, 188.com, yeah.net
 
     my $smtp = Email::Send::Netease->new('foo@126.com','password');
-    # my $smtp = Email::Send::Netease->new('foo@163.com','password');
-    # my $smtp = Email::Send::Netease->new('foo@188.com','password');
-    # my $smtp = Email::Send::Netease->new('foo@yeah.net','password');
     # or with debug
     my $smtp = Email::Send::Netease->new('foo@126.com','password',1);
 
-=head2 sendmail($subject, $content, @recepients)
+=head2 sendmail($subject, $html_body, @recepients)
 
 Send the message. 
 
-The subject and content can be Chinese (if so they must be UTF-8 string).
+The subject and body can be Chinese (if so they must be UTF-8 string).
 They will be encoded with UTF-8 for sending.
 
-The message content should be HTML syntax compatible, it will be sent as HTML format.
+The message body should be HTML syntax compatible, it will be sent with text/html format.
 
-    my $subject = "Hello there";
-    my $content = "<P>Hi there:</P><P>How are you?</P>";
+    my $subject = "Hello";
+    my $html_body =<<EOF;
+<html>
+<body>
+<h1>Hello there</h1>
+<p>It's nice to see you.</p>
+</body>
+</html>
+EOF
 
-    $smtp->sendmail($subject,$content,'foo@163.com');
+    $smtp->sendmail($subject,$html_body,'foo@163.com');
     # send to more than one people
-    $smtp->sendmail($subject,$content,'foo@163.com','bar@sina.com', ...);
+    $smtp->sendmail($subject,$html_body,'foo@163.com','bar@sina.com', ...);
     
 
 =head1 AUTHOR
